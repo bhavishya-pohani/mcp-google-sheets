@@ -145,30 +145,37 @@ def get_sheet_data(spreadsheet_id: str,
     """
     sheets_service = ctx.request_context.lifespan_context.sheets_service
 
-    # Construct the range - keep original API behavior
+    # Construct the range - fix: use A1:Z1000 when no range specified
     if range:
         full_range = f"{sheet}!{range}"
     else:
-        full_range = sheet
+        # Default to a broad range instead of just sheet name to avoid D1-only issue
+        full_range = f"{sheet}!A1:Z1000"
     
-    # Use the full API to get all grid data including formatting then includeGridData=True
-    # Use the only cell values when includeGridData=False
-    result = sheets_service.spreadsheets().get(
-        spreadsheetId=spreadsheet_id,
-        ranges=[full_range],
-        includeGridData=include_grid_data
-    ).execute()
-    
-    if not include_grid_data:
+    if include_grid_data:
+        # Use the full API to get all grid data including formatting
+        result = sheets_service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id,
+            ranges=[full_range],
+            includeGridData=True
+        ).execute()
+        return result
+    else:
+        # Use values API to get cell values only - this is the correct API for reading values
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=full_range
+        ).execute()
+        
+        print(f"**Result: {result}")
+        
         # Transform the result to match the expected structure
-        result = {
+        return {
             'spreadsheetId': spreadsheet_id,
             'valueRanges': [{
-                'range': full_range,
+                'range': result.get('range', full_range),
                 'values': result.get('values', [])}]
         }
-
-    return result
 
 @mcp.tool()
 def get_sheet_formulas(spreadsheet_id: str,
