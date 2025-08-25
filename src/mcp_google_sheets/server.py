@@ -195,11 +195,12 @@ def get_sheet_formulas(spreadsheet_id: str,
     """
     sheets_service = ctx.request_context.lifespan_context.sheets_service
     
-    # Construct the range
+    # Construct the range - fix: use A1:Z1000 when no range specified
     if range:
         full_range = f"{sheet}!{range}"
     else:
-        full_range = sheet  # Get all formulas in the specified sheet
+        # Default to a broad range instead of just sheet name to avoid D1-only issue
+        full_range = f"{sheet}!A1:Z1000"
     
     # Call the Sheets API
     result = sheets_service.spreadsheets().values().get(
